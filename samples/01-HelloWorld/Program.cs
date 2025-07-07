@@ -21,6 +21,14 @@ public static class Program
         {
             _ = CreateFloor(100, Layers.NonMoving);
 
+            VehicleSettings settings = new();
+            VehicleConstraint constraint = AddVehicle(in settings);
+            Body body = constraint.VehicleBody;
+            WheeledVehicleController controller = constraint.GetController<WheeledVehicleController>();
+            foreach(var wheel in constraint.GetWheels())
+            {
+            }
+
             // add NumberOfBoxes cubes
             for (int i = 0; i < NumberOfBoxes; i++)
             {

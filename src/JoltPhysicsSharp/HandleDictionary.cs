@@ -10,14 +10,15 @@ namespace JoltPhysicsSharp;
 
 internal static class HandleDictionary
 {
-    internal static readonly IPlatformLock s_instancesLock = PlatformLock.Create();
+    private static readonly IPlatformLock s_instancesLock = PlatformLock.Create();
+    private static readonly Dictionary<IntPtr, WeakReference> s_instances = [];
+    private static readonly Dictionary<Type, Func<nint, NativeObject>> s_registeredFactories = [];
 
-    internal static readonly Dictionary<IntPtr, WeakReference> s_instances = [];
-
-#if DEBUG
-    internal static readonly ConcurrentBag<Exception> s_exceptions = [];
-    internal static readonly Dictionary<IntPtr, string> s_stackTraces = [];
-#endif
+    public static void RegisterFactory<TNativeObject>(Func<nint, TNativeObject> factory)
+        where TNativeObject : NativeObject
+    {
+        s_registeredFactories.Add(typeof(TNativeObject), factory);
+    }
 
     /// <summary>
     /// Retrieve the living instance if there is one, or null if not.
@@ -47,7 +48,39 @@ internal static class HandleDictionary
     /// Retrieve or create an instance for the native handle.
     /// </summary>
     /// <returns>The instance, or null if the handle was null.</returns>
-    public static TNativeObject? GetOrAddObject<TNativeObject>(nint handle, Func<IntPtr, TNativeObject> objectFactory)
+    public static TNativeObject? GetOrAddObject<TNativeObject>(nint handle)
+        where TNativeObject : NativeObject
+    {
+        if (handle == 0)
+            return default;
+
+        if (!s_registeredFactories.TryGetValue(typeof(TNativeObject), out Func<nint, NativeObject>? objectFactory))
+        {
+            throw new InvalidOperationException($"No Factory registered for object type: {typeof(TNativeObject)}");
+        }
+
+        s_instancesLock.EnterUpgradeableReadLock();
+        try
+        {
+            if (GetInstanceNoLocks(handle, out TNativeObject? instance))
+            {
+                return instance;
+            }
+
+            TNativeObject obj = (TNativeObject)objectFactory.Invoke(handle);
+            return obj;
+        }
+        finally
+        {
+            s_instancesLock.ExitUpgradeableReadLock();
+        }
+    }
+
+    /// <summary>
+    /// Retrieve or create an instance for the native handle.
+    /// </summary>
+    /// <returns>The instance, or null if the handle was null.</returns>
+    public static TNativeObject? GetOrAddObject<TNativeObject>(nint handle, Func<nint, TNativeObject> objectFactory)
         where TNativeObject : NativeObject
     {
         if (handle == 0)
@@ -100,9 +133,6 @@ internal static class HandleDictionary
             }
 
             s_instances[handle] = new WeakReference(instance);
-//#if DEBUG // NOTE: BGE: dummied out because it kills performance when debug drawing.
-//            s_stackTraces[handle] = Environment.StackTrace;
-//#endif
         }
         finally
         {
@@ -128,9 +158,6 @@ internal static class HandleDictionary
             if (existed && (!weak!.IsAlive || weak.Target == instance))
             {
                 s_instances.Remove(handle);
-#if DEBUG
-                s_stackTraces.Remove(handle);
-#endif
             }
             else
             {
@@ -149,7 +176,7 @@ internal static class HandleDictionary
                             $"H: {handle.ToString("x")} Type: {instance.GetType()}");
                     }
                 }
-                else if (weak.Target is NativeObject o && o != instance)
+                else if (weak.Target! is NativeObject o && o != instance)
                 {
                     // there was an object in the dictionary, but it was NOT this object
 
@@ -164,9 +191,7 @@ internal static class HandleDictionary
                 }
                 if (ex != null)
                 {
-                    if (instance.fromFinalizer)
-                        s_exceptions.Add(ex);
-                    else
+                    if (!instance.fromFinalizer)
                         throw ex;
                 }
 #endif
@@ -208,7 +233,7 @@ internal static class HandleDictionary
                 {
                     throw new InvalidOperationException(
                         $"An unknown object exists for the handle when trying to fetch an instance. " +
-                        $"H: {handle.ToString("x")} Type: ({o.GetType()}, {typeof(TNativeObject)})");
+                        $"H: {handle:x} Type: ({o.GetType()}, {typeof(TNativeObject)})");
 #endif
                 }
             }
