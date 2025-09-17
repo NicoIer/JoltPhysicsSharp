@@ -1,6 +1,7 @@
 // Copyright (c) Amer Koleci and Contributors.
 // Licensed under the MIT License (MIT). See LICENSE in the repository root for more information.
 
+using System.Diagnostics;
 using System.Numerics;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -63,9 +64,23 @@ internal static unsafe partial class JoltApi
             return nativeLibrary;
         }
 
+#if DEBUG
+        string debugLibrarySuffix = "d";
+#else
+        string debugLibrarySuffix = Debugger.IsAttached ? "d" : string.Empty;
+#endif
+
         if (OperatingSystem.IsWindows())
         {
-            string dllName = DoublePrecision ? $"{LibDoubleName}.dll" : $"{LibName}.dll";
+            string dllName = DoublePrecision ? $"{LibDoubleName}{debugLibrarySuffix}.dll" : $"{LibName}{debugLibrarySuffix}.dll";
+
+            if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
+            {
+                return nativeLibrary;
+            }
+
+            // Try without the debug suffix
+            dllName = DoublePrecision ? $"{LibDoubleName}.dll" : $"{LibName}.dll";
 
             if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
             {
@@ -74,7 +89,15 @@ internal static unsafe partial class JoltApi
         }
         else if (OperatingSystem.IsLinux())
         {
-            string dllName = DoublePrecision ? $"lib{LibDoubleName}.so" : $"lib{LibName}.so";
+            string dllName = DoublePrecision ? $"lib{LibDoubleName}{debugLibrarySuffix}.so" : $"lib{LibName}{debugLibrarySuffix}.so";
+
+            if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
+            {
+                return nativeLibrary;
+            }
+
+            // Try without the debug suffix
+            dllName = DoublePrecision ? $"lib{LibDoubleName}.so" : $"lib{LibName}.so";
 
             if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
             {
@@ -83,7 +106,15 @@ internal static unsafe partial class JoltApi
         }
         else if (OperatingSystem.IsMacOS() || OperatingSystem.IsMacCatalyst())
         {
-            string dllName = DoublePrecision ? $"lib{LibDoubleName}.dylib" : $"lib{LibName}.dylib";
+            string dllName = DoublePrecision ? $"lib{LibDoubleName}{debugLibrarySuffix}.dylib" : $"lib{LibName}{debugLibrarySuffix}.dylib";
+
+            if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
+            {
+                return nativeLibrary;
+            }
+
+            // Try without the debug suffix
+            dllName = DoublePrecision ? $"lib{LibDoubleName}.dylib" : $"lib{LibName}.dylib";
 
             if (NativeLibrary.TryLoad(dllName, assembly, searchPath, out nativeLibrary))
             {
@@ -91,7 +122,15 @@ internal static unsafe partial class JoltApi
             }
         }
 
-        string libraryLoadName = DoublePrecision ? $"lib{LibDoubleName}" : $"lib{LibName}";
+        string libraryLoadName = DoublePrecision ? $"lib{LibDoubleName}{debugLibrarySuffix}" : $"lib{LibName}{debugLibrarySuffix}";
+
+        if (NativeLibrary.TryLoad(libraryLoadName, assembly, searchPath, out nativeLibrary))
+        {
+            return nativeLibrary;
+        }
+
+        // Try without the debug suffix
+        libraryLoadName = DoublePrecision ? $"lib{LibDoubleName}" : $"lib{LibName}";
 
         if (NativeLibrary.TryLoad(libraryLoadName, assembly, searchPath, out nativeLibrary))
         {
@@ -175,14 +214,14 @@ internal static unsafe partial class JoltApi
     public static partial nint JPH_BroadPhaseLayerInterfaceMask_Create(uint numBroadPhaseLayers);
 
     [LibraryImport(LibName)]
-    public static partial void JPH_BroadPhaseLayerInterfaceMask_ConfigureLayer(nint bpInterface, in BroadPhaseLayer broadPhaseLayer, uint groupsToInclude, uint groupsToExclude);
+    public static partial void JPH_BroadPhaseLayerInterfaceMask_ConfigureLayer(nint bpInterface, byte broadPhaseLayer, uint groupsToInclude, uint groupsToExclude);
 
 
     [LibraryImport(LibName)]
     public static partial nint JPH_BroadPhaseLayerInterfaceTable_Create(uint numObjectLayers, uint numBroadPhaseLayers);
 
     [LibraryImport(LibName)]
-    public static partial void JPH_BroadPhaseLayerInterfaceTable_MapObjectToBroadPhaseLayer(nint bpInterface, ObjectLayer objectLayer, BroadPhaseLayer broadPhaseLayer);
+    public static partial void JPH_BroadPhaseLayerInterfaceTable_MapObjectToBroadPhaseLayer(nint bpInterface, uint objectLayer, byte broadPhaseLayer);
 
     //  ObjectVsBroadPhaseLayerFilter
     [LibraryImport(LibName)]
@@ -202,10 +241,10 @@ internal static unsafe partial class JoltApi
     public static partial ObjectLayer JPH_ObjectLayerPairFilterMask_GetObjectLayer(uint group, uint mask);
 
     [LibraryImport(LibName)]
-    public static partial uint JPH_ObjectLayerPairFilterMask_GetGroup(in ObjectLayer layer);
+    public static partial uint JPH_ObjectLayerPairFilterMask_GetGroup(uint layer);
 
     [LibraryImport(LibName)]
-    public static partial uint JPH_ObjectLayerPairFilterMask_GetMask(in ObjectLayer layer);
+    public static partial uint JPH_ObjectLayerPairFilterMask_GetMask(uint layer);
 
     [LibraryImport(LibName)]
     public static partial nint JPH_ObjectLayerPairFilterTable_Create(uint numObjectLayers);
@@ -2523,16 +2562,16 @@ internal static unsafe partial class JoltApi
     public struct JPH_ContactListener_Procs
     {
         public delegate* unmanaged<nint, nint, nint, Vector3*, CollideShapeResult*, uint> OnContactValidate;
-        public delegate* unmanaged<nint, nint, nint, nint, nint, void> OnContactAdded;
-        public delegate* unmanaged<nint, nint, nint, nint, nint, void> OnContactPersisted;
+        public delegate* unmanaged<nint, nint, nint, nint, ContactSettings*, void> OnContactAdded;
+        public delegate* unmanaged<nint, nint, nint, nint, ContactSettings*, void> OnContactPersisted;
         public delegate* unmanaged<nint, SubShapeIDPair*, void> OnContactRemoved;
     }
 
     public struct JPH_ContactListener_ProcsDouble
     {
         public delegate* unmanaged<nint, nint, nint, Double3*, CollideShapeResult*, uint> OnContactValidate;
-        public delegate* unmanaged<nint, nint, nint, nint, nint, void> OnContactAdded;
-        public delegate* unmanaged<nint, nint, nint, nint, nint, void> OnContactPersisted;
+        public delegate* unmanaged<nint, nint, nint, nint, ContactSettings*, void> OnContactAdded;
+        public delegate* unmanaged<nint, nint, nint, nint, ContactSettings*, void> OnContactPersisted;
         public delegate* unmanaged<nint, SubShapeIDPair*, void> OnContactRemoved;
     }
 
@@ -2580,45 +2619,6 @@ internal static unsafe partial class JoltApi
     public static partial void JPH_ContactManifold_GetWorldSpaceContactPointOn1(nint manifold, uint index, Vector3* result); // JPH_RVec3
     [LibraryImport(LibName)]
     public static partial void JPH_ContactManifold_GetWorldSpaceContactPointOn2(nint manifold, uint index, Vector3* result); // JPH_RVec3
-
-    /* ContactSettings */
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetFriction(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetFriction(nint settings, float friction);
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetRestitution(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetRestitution(nint settings, float restitution);
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetInvMassScale1(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetInvMassScale1(nint settings, float scale);
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetInvInertiaScale1(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetInvInertiaScale1(nint settings, float scale);
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetInvMassScale2(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetInvMassScale2(nint settings, float scale);
-    [LibraryImport(LibName)]
-    public static partial float JPH_ContactSettings_GetInvInertiaScale2(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetInvInertiaScale2(nint settings, float scale);
-    [LibraryImport(LibName)]
-    [return: MarshalAs(UnmanagedType.U1)]
-    public static partial bool JPH_ContactSettings_GetIsSensor(nint settings);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetIsSensor(nint settings, [MarshalAs(UnmanagedType.U1)] bool sensor);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_GetRelativeLinearSurfaceVelocity(nint settings, Vector3* result);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetRelativeLinearSurfaceVelocity(nint settings, Vector3* velocity);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_GetRelativeAngularSurfaceVelocity(nint settings, Vector3* result);
-    [LibraryImport(LibName)]
-    public static partial void JPH_ContactSettings_SetRelativeAngularSurfaceVelocity(nint settings, Vector3* velocity);
 
     #region CharacterBase
     public struct JPH_CharacterBaseSettings

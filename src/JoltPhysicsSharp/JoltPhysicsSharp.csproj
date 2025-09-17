@@ -11,15 +11,14 @@
 
   <!-- Version -->
   <PropertyGroup>
-    <VersionPrefix>2.17.5</VersionPrefix>
+    <VersionPrefix>2.18.4</VersionPrefix>
     <VersionSuffix Condition="'$(VersionSuffix)' == ''"></VersionSuffix>
   </PropertyGroup>
 
   <ItemGroup>
-    <None Include="..\..\README.md" Pack="true" PackagePath="\"/>
+    <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
-  <!-- Native Libs -->
   <ItemGroup>
     <Content Include="$(NativeLibDirectory)win-x64\joltc.dll">
       <PackagePath>runtimes/win-x64/native</PackagePath>
@@ -81,6 +80,8 @@
       <Pack>True</Pack>
       <Visible>False</Visible>
     </Content>
+    <ProjectReference Include="..\JoltPhysics.Native\JoltPhysics.Native.csproj" Condition="'$(Configuration)' != 'DEBUG'" />
+    <ProjectReference Include="..\JoltPhysics.Native.Debug\JoltPhysics.Native.Debug.csproj" Condition="'$(Configuration)' == 'DEBUG'" />
   </ItemGroup>
 
 

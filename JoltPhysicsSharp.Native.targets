@@ -3,6 +3,7 @@
     <When Condition="($([MSBuild]::IsOsPlatform('windows')) and '$(RuntimeIdentifier)'=='') or '$(RuntimeIdentifier)'=='win-x64'">
       <ItemGroup>
         <None Include="$(NativeLibDirectory)win-x64/joltc.dll" Link="joltc.dll" Visible="False" CopyToOutputDirectory="PreserveNewest" />
+        <None Include="$(NativeLibDirectory)win-x64/joltcd.dll" Link="joltcd.dll" Visible="False" CopyToOutputDirectory="PreserveNewest" />
         <None Include="$(NativeLibDirectory)win-x64/joltc_double.dll" Link="joltc_double.dll" Visible="False" CopyToOutputDirectory="PreserveNewest" />
       </ItemGroup>
     </When>
