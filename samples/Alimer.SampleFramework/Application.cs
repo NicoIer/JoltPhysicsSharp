@@ -35,11 +35,6 @@ public abstract class Application : DisposableObject
 
     protected Application(string title, int width = 1200, int height = 800)
     {
-        if (!Foundation.Init(false))
-        {
-            return;
-        }
-
         Foundation.SetTraceHandler((message) =>
         {
             Console.WriteLine(message);
@@ -57,6 +52,12 @@ public abstract class Application : DisposableObject
             throw new Exception(outMessage);
         });
 #endif
+
+        if (!Foundation.Init(false))
+        {
+            return;
+        }
+
         _settings = new PhysicsSystemSettings()
         {
             MaxBodies = MaxBodies,
@@ -188,8 +189,7 @@ public abstract class Application : DisposableObject
 
                 // Raylib uses column major matrix
                 Matrix4x4 worldTransform = BodyInterface.GetWorldTransform(bodyID);
-                Matrix4x4 drawTransform = Matrix4x4.Transpose(worldTransform);
-                DrawMesh(BoxMesh, BoxMaterial, drawTransform);
+                DrawMesh(BoxMesh, BoxMaterial, worldTransform);
             }
 
             EndMode3D();
@@ -413,7 +413,7 @@ public abstract class Application : DisposableObject
         return constraint;
     }
 
-    protected virtual ValidateResult OnContactValidate(PhysicsSystem system, in Body body1, in Body body2, Double3 baseOffset, in CollideShapeResult collisionResult)
+    protected virtual ValidateResult OnContactValidate(PhysicsSystem system, in Body body1, in Body body2, RVector3 baseOffset, in CollideShapeResult collisionResult)
     {
         TraceLog(TraceLogLevel.Debug, "Contact validate callback");
 
